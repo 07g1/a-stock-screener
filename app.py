@@ -38,19 +38,31 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 import streamlit as st
 
+# ============================ 页面配置 ============================
+# 必须是第一个 st.* 调用
+st.set_page_config(
+    page_title="A股涨停板筛选器",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 # 抑制 Streamlit 模块加载阶段的 "missing ScriptRunContext" 无害警告
 class _SuppressScriptRunContextWarning(logging.Filter):
     def filter(self, record):
         return "missing ScriptRunContext" not in record.getMessage()
 
-_target_logger = logging.getLogger("streamlit.runtime.scriptrunner_utils.script_run_context")
-_target_logger.addFilter(_SuppressScriptRunContextWarning())
+try:
+    _target_logger = logging.getLogger("streamlit.runtime.scriptrunner_utils.script_run_context")
+    _target_logger.addFilter(_SuppressScriptRunContextWarning())
+except Exception:
+    pass  # 日志路径可能在 Streamlit 版本间变化，忽略
 
 try:
     import akshare as ak
 except ImportError:
     st.error("缺少依赖, 请先执行: pip install akshare pandas streamlit plotly")
-    sys.exit(1)
+    st.stop()
 
 try:
     import plotly.graph_objects as go
@@ -58,14 +70,6 @@ try:
     HAS_PLOTLY = True
 except ImportError:
     HAS_PLOTLY = False
-
-# ============================ 页面配置 ============================
-st.set_page_config(
-    page_title="A股涨停板筛选器",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 # ============================ 配置区 ============================
 class Config:
@@ -1742,7 +1746,10 @@ def main():
 
 if __name__ == "__main__":
     # 如果直接用 python 运行, 自动转为 streamlit run 启动
-    import os as _os, subprocess as _sp, sys as _sys
+    import os as _os, subprocess as _sp, sys as _sys, traceback as _tb
     if "STREAMLIT_RUNTIME" not in _os.environ:
         _sys.exit(_sp.call(["streamlit", "run", _os.path.abspath(__file__)] + _sys.argv[1:]))
-    main()
+    try:
+        main()
+    except Exception:
+        st.error(f"应用启动异常:\n```\n{_tb.format_exc()}\n```")
